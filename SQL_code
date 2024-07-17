@@ -1,0 +1,460 @@
+drop view if exists avenues_percentage_gender;
+drop view if exists avenues_percentage_male;
+drop view if exists avenues_percentage_female;
+drop view if exists stock_percentage_overall;
+drop view if exists stock_percentage_gender;
+drop view if exists stock_percentage_age;
+drop view if exists stock_percentage_age_group;
+drop view if exists obj_male;
+drop view if exists obj_female;
+drop view if exists duration_gender;
+drop view if exists duration_total;
+drop view if exists duration_age;
+drop view if exists duration_age_group;
+drop view if exists duration_age_gender;
+drop view if exists duration_age_group_gender;
+drop view if exists investment_monitor_factor;
+drop view if exists age_factor;
+drop view if exists age_group_factor;
+drop view if exists purpose_duration_objective;
+drop view if exists purpose_duration;
+drop view if exists mutual_funds_male_age;
+drop view if exists equity_market_male_age;
+drop view if exists government_bonds_male_age;
+drop view if exists fixed_deposits_male_age;
+drop view if exists mutual_funds_female_age;
+drop view if exists equity_market_female_age;
+drop view if exists government_bonds_female_age;
+drop view if exists fixed_deposits_female_age;
+drop view if exists fixed_deposits_female_age_group;
+drop view if exists government_bonds_female_age_group;
+drop view if exists equity_market_female_age_group;
+drop view if exists mutual_funds_female_age_group;
+drop view if exists fixed_deposits_male_age_group;
+drop view if exists government_bonds_male_age_group;
+drop view if exists equity_market_male_age_group;
+drop view if exists mutual_funds_male_age_group;
+drop view if exists sum_ranking_investment_age_group;
+drop view if exists fixed_deposits_age_group;
+drop view if exists mutual_funds_age_group;
+drop view if exists ppf_age_group;
+drop view if exists gold_age_group;
+drop view if exists government_bonds_age_group;
+drop view if exists equity_market_age_group;
+drop view if exists debentures_age_group;
+-- last drop
+drop view if exists gender_cnt;
+drop view if exists age_group_table;
+
+CREATE view gender_cnt as
+	(
+	select gender, count(*) as cnt 
+	from public."CustomerInfo"
+	group by gender
+	);
+
+CREATE view age_group_table as
+	(
+	select * , case when age between 21 and 25 then '21-25'
+	when age between 26 and 30 then '26-30'
+	when age between 31 and 35 then '31-35'
+	else 'over 35' end as age_group
+	from public."CustomerInfo"
+	);
+
+CREATE view avenues_percentage_gender as
+	with cte1 as 
+	(
+	select c1.*, g1.cnt as g_cnt 
+	from public."CustomerInfo" c1
+	left join gender_cnt g1
+	on c1.gender = g1.gender
+	)
+	select gender, investment_avenues, count(*) ,
+		g_cnt, round(count(*)/cast(g_cnt as numeric)*100,2) as overall_perc,
+		round(count(*)/ cast((select count(*) 
+		from public."CustomerInfo" 
+		where investment_avenues = 'Yes') as numeric)*100, 2) as pos_perc
+	from cte1 
+	where investment_avenues = 'Yes'
+	group by gender, investment_avenues,g_cnt
+	;
+
+CREATE view avenues_percentage_male as
+	(
+	select age,count(*), 
+		round(count(*)/
+		cast((select count(*) 
+		from public."CustomerInfo" 
+		where gender = 'Male' and investment_avenues = 'Yes') 
+		as numeric)*100,2) 
+		as percentage
+	from public."CustomerInfo"
+	where gender = 'Male' and investment_avenues = 'Yes'
+	group by age, investment_avenues
+	);
+
+CREATE view avenues_percentage_female as
+	(
+	select age,count(*), 
+		round(count(*)/
+		cast((select count(*) 
+		from public."CustomerInfo" 
+		where gender = 'Female' and investment_avenues = 'Yes') 
+		as numeric)*100,2) 
+		as percentage
+	from public."CustomerInfo"
+	where gender = 'Female' and investment_avenues = 'Yes'
+	group by age, investment_avenues
+	);
+
+CREATE view stock_percentage_overall as
+	(
+	select round(cast(sum(case when stock_market = 'Yes' 
+		then 1 else 0 end)as numeric)/count(*) *100,2) as percentage 
+	from public."CustomerInfo"
+	);
+
+CREATE view stock_percentage_gender as
+	(
+	select gender,round(cast(sum(case when stock_market = 'Yes' 
+		then 1 else 0 end)as numeric)/count(*) *100,2) as percentage 
+	from public."CustomerInfo"
+	group by gender
+	);
+
+CREATE view stock_percentage_age as
+	(
+	select age,round(cast(sum(case when stock_market = 'Yes' 
+		then 1 else 0 end)as numeric)/count(*) *100,2) as percentage 
+	from public."CustomerInfo"
+	group by age
+	);
+
+CREATE view stock_percentage_age_group as
+	(
+	select age_group,round(cast(sum(case when stock_market = 'Yes' 
+		then 1 else 0 end)as numeric)/count(*) *100,2) as percentage 
+	from age_group_table
+	group by age_group
+	);
+
+CREATE view obj_male as
+	(
+	select "Objective", count(*) as cnt from public."CustomerInfo"
+	where gender = 'Male'
+	group by "Objective"
+	order by count(*) desc
+	);
+
+CREATE view obj_female as
+	(
+	select "Objective", count(*) as cnt from public."CustomerInfo"
+	where gender = 'Female'
+	group by "Objective"
+	order by count(*) desc
+	);
+
+CREATE view duration_gender as
+	with cte2 as (
+	select c1.gender, "Duration", count(*) as cnt, 
+		g1.cnt as g_cnt
+	from public."CustomerInfo" c1
+	left join gender_cnt g1
+	on c1.gender = g1.gender
+	group by c1.gender, "Duration" , g1.cnt
+	order by c1.gender, "Duration"
+	)
+	select gender, "Duration", cnt, 
+		round(cnt/cast(g_cnt as numeric) *100,2) as percentage 
+		from cte2
+	;
+CREATE view duration_total as
+	(
+	select "Duration", count(*) as cnt, 
+		round(count(*)/cast((select count(*) 
+		from public."CustomerInfo") as numeric) *100,2) as percentage
+	from public."CustomerInfo"
+	group by "Duration"
+	order by "Duration"
+	);
+
+CREATE view duration_age as
+	(
+	select age,"Duration", count(*) as cnt, 
+		round(count(*)/cast((select count(*) 
+		from public."CustomerInfo") as numeric) *100,2) as percentage
+	from public."CustomerInfo"
+	group by age,"Duration"
+	order by "Duration"
+	);
+
+CREATE view duration_age_group as
+	(
+	select age_group,"Duration", count(*) as cnt, 
+		round(count(*)/cast((select count(*) 
+		from public."CustomerInfo") as numeric) *100,2) as percentage
+	from age_group_table
+	group by age_group,"Duration"
+	order by "Duration"
+	);
+
+CREATE view duration_age_gender as
+	with cte2 as (
+	select c1.gender, age, "Duration", count(*) as cnt, 
+		g1.cnt as g_cnt
+	from public."CustomerInfo" c1
+	left join gender_cnt g1
+	on c1.gender = g1.gender
+	group by c1.gender, "Duration", age, g1.cnt
+	order by c1.gender, age, "Duration"
+	)
+	select gender, age, "Duration", cnt, 
+		round(cnt/cast(g_cnt as numeric) *100,2) as percentage 
+		from cte2
+	;
+
+CREATE view duration_age_group_gender as
+	with cte2 as (
+	select c1.gender, age_group, "Duration", count(*) as cnt, 
+		g1.cnt as g_cnt
+	from age_group_table c1
+	left join gender_cnt g1
+	on c1.gender = g1.gender
+	group by c1.gender, "Duration", age_group, g1.cnt
+	order by c1.gender, age_group, "Duration"
+	)
+	select gender, age_group, "Duration", cnt, 
+		round(cnt/cast(g_cnt as numeric) *100,2) as percentage 
+		from cte2
+	;
+
+
+CREATE view investment_monitor_factor as
+	(
+	select "Invest_Monitor", factor, count(*)
+	from public."CustomerInfo"
+	group by "Invest_Monitor", factor
+	order by "Invest_Monitor"
+	);
+
+
+CREATE view age_factor as
+	(
+	select max(age)
+	from public."CustomerInfo"
+	where factor = 'Locking Period'
+	);
+
+CREATE view age_group_factor as
+	(
+	select max(age_group)
+	from age_group_table
+	where factor = 'Locking Period'
+	);
+
+
+CREATE view purpose_duration_objective as
+	(
+select "Purpose", "Objective","Duration", count(*) from public."CustomerInfo"
+group by "Purpose", "Objective", "Duration"
+order by "Purpose", "Objective", "Duration"
+	);
+
+CREATE view purpose_duration as
+	(
+select "Purpose", "Duration", count(*) from public."CustomerInfo"
+group by "Purpose", "Duration"
+order by "Purpose", "Duration"
+	);
+
+
+CREATE view mutual_funds_male_age as
+	(
+select age, mutual_funds
+from public."CustomerInfo"
+where gender = 'Male'
+group by age, mutual_funds
+	);
+
+CREATE view mutual_funds_male_age_group as
+	(
+select age_group, mutual_funds, count(*) as cnt
+from age_group_table
+where gender = 'Male'
+group by age_group, mutual_funds
+	);
+
+CREATE view equity_market_male_age as
+	(
+select age, equity_market
+from public."CustomerInfo"
+where gender = 'Male'
+group by age, equity_market
+	);
+
+CREATE view equity_market_male_age_group as
+	(
+select age_group, equity_market, count(*) as cnt
+from age_group_table
+where gender = 'Male'
+group by age_group, equity_market
+	);
+
+CREATE view government_bonds_male_age as
+	(
+select age, government_bonds
+from public."CustomerInfo"
+where gender = 'Male'
+group by age, government_bonds
+	);
+
+CREATE view government_bonds_male_age_group as
+	(
+select age_group, government_bonds, count(*) as cnt
+from age_group_table
+where gender = 'Male'
+group by age_group, government_bonds
+	);
+
+CREATE view fixed_deposits_male_age as
+	(
+select age, fixed_deposits
+from public."CustomerInfo"
+where gender = 'Male'
+group by age, fixed_deposits
+	);
+
+CREATE view fixed_deposits_male_age_group as
+	(
+select age_group, fixed_deposits, count(*) as cnt
+from age_group_table
+where gender = 'Male'
+group by age_group, fixed_deposits
+	);
+
+CREATE view mutual_funds_female_age as
+	(
+select age, mutual_funds
+from public."CustomerInfo"
+where gender = 'Female'
+group by age, mutual_funds
+	);
+
+CREATE view mutual_funds_female_age_group as
+	(
+select age_group, mutual_funds, count(*) as cnt
+from age_group_table
+where gender = 'Female'
+group by age_group, mutual_funds
+	);
+
+CREATE view equity_market_female_age as
+	(
+select age, equity_market
+from public."CustomerInfo"
+where gender = 'Female'
+group by age, equity_market
+	);
+
+CREATE view equity_market_female_age_group as
+	(
+select age_group, equity_market, count(*) as cnt
+from age_group_table
+where gender = 'Female'
+group by age_group, equity_market
+	);
+
+CREATE view government_bonds_female_age as
+	(
+select age, government_bonds
+from public."CustomerInfo"
+where gender = 'Female'
+group by age, government_bonds
+	);
+
+CREATE view government_bonds_female_age_group as
+	(
+select age_group, government_bonds, count(*) as cnt
+from age_group_table
+where gender = 'Female'
+group by age_group, government_bonds
+	);
+
+CREATE view fixed_deposits_female_age as
+	(
+select age, fixed_deposits
+from public."CustomerInfo"
+where gender = 'Female'
+group by age, fixed_deposits
+	);
+
+CREATE view fixed_deposits_female_age_group as
+	(
+select age_group, fixed_deposits, count(*) as cnt
+from age_group_table
+where gender = 'Female'
+group by age_group, fixed_deposits
+	);
+
+CREATE view sum_ranking_investment_age_group as
+	(
+select age_group, sum(mutual_funds) as sum_mutual_funds,
+	sum(equity_market) as sum_equity_market,
+	sum(fixed_deposits) as sum_fixed_deposits,
+	sum(government_bonds) as sum_government_bonds,
+	sum(debentures) as sum_debentures,
+	sum(ppf) as sum_ppf,
+	sum(gold) as sum_gold
+from age_group_table
+group by age_group
+	);
+
+CREATE view fixed_deposits_age_group as
+	(
+select age_group, fixed_deposits, count(*) as cnt
+from age_group_table
+group by age_group, fixed_deposits
+	);
+
+CREATE view mutual_funds_age_group as
+	(
+select age_group, mutual_funds, count(*) as cnt
+from age_group_table
+group by age_group, mutual_funds
+	);
+
+CREATE view ppf_age_group as
+	(
+select age_group, ppf, count(*) as cnt
+from age_group_table
+group by age_group, ppf
+	);
+
+CREATE view gold_age_group as
+	(
+select age_group, gold, count(*) as cnt
+from age_group_table
+group by age_group, gold
+	);
+
+CREATE view government_bonds_age_group as
+	(
+select age_group, government_bonds, count(*) as cnt
+from age_group_table
+group by age_group, government_bonds
+	);
+
+CREATE view equity_market_age_group as
+	(
+select age_group, equity_market, count(*) as cnt
+from age_group_table
+group by age_group, equity_market
+	);
+
+CREATE view debentures_age_group as
+	(
+select age_group, debentures, count(*) as cnt
+from age_group_table
+group by age_group, debentures
+		);
